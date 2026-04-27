@@ -1,0 +1,281 @@
+# the-seed
+
+> A Docker-based PHP development seed — Laravel · PostgreSQL · nginx SSL · Mailpit · Sanctum API
+
+A ready-to-use local development environment you can clone and build on. Ships with session auth, a public and private REST API, a vanilla JS SPA, email sending with attachments, and HTTPS via a custom local domain. Everything is configured through a single `.env` file.
+
+## What's included
+
+| Layer | Technology |
+|---|---|
+| Web server / reverse proxy | nginx (alpine) |
+| Application | PHP 8.3-FPM · Laravel (latest) |
+| Database | PostgreSQL 16 |
+| Email (dev) | Mailpit — catches all outgoing mail |
+| Email (prod) | Gmail SMTP via msmtp App Password |
+| DB browser | Adminer |
+| Auth | Session auth (web) + Sanctum bearer tokens (API) |
+| SSL | mkcert — locally trusted certificates, no browser warnings |
+| Task runner | [just](https://github.com/casey/just) |
+
+## Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) ≥ 4.x
+- [just](https://github.com/casey/just) — `brew install just`
+- [mkcert](https://github.com/FiloSottile/mkcert) — optional, for HTTPS — `brew install mkcert && mkcert -install`
+
+## Quickstart
+
+```bash
+git clone https://github.com/your-handle/the-seed && cd the-seed
+
+# That's it — just up auto-creates .env and configs/msmtprc on first run
+just up
+```
+
+First run takes ~2 minutes (downloads images, installs Composer/npm dependencies, migrates DB). Access the app at `http://localhost` while it bootstraps.
+
+On first start the entrypoint automatically:
+1. Creates a fresh Laravel project in `app/`
+2. Runs all database migrations (PostgreSQL)
+3. Seeds a demo user and API token (credentials printed to container logs)
+4. Builds frontend assets via Vite
+
+```bash
+just logs    # watch bootstrap progress
+just info    # print all service URLs once ready
+```
+
+## Access
+
+| Service | URL | Notes |
+|---|---|---|
+| App (HTTPS) | `https://seed.local` | requires `just ssl` first |
+| App (HTTP) | `http://localhost` | works immediately |
+| Login | `/login` | admin@seed.local / password |
+| Dashboard | `/dashboard` | protected, shows live DB stats |
+| Contact form | `/contact` | protected, sends email via Mailpit |
+| Public API | `/api/v1/status` | no auth |
+| Public API | `/api/v1/ping` | no auth |
+| Private API | `/api/v1/me` | Bearer token required |
+| SPA demo | `/spa/` | vanilla JS |
+| Email | `/mail/send?to=you@example.com` | sends with attachment |
+| Mailpit | `http://localhost:8025` | captured emails |
+| Adminer | `http://localhost:8081` | PostgreSQL browser |
+
+## HTTPS with custom domain
+
+### 1. Add the domain to `/etc/hosts`
+
+```bash
+echo "127.0.0.1  seed.local" | sudo tee -a /etc/hosts
+```
+
+### 2. Generate a locally-trusted certificate
+
+```bash
+just ssl
+# Requires: brew install mkcert && mkcert -install  (once per machine)
+```
+
+Certs are written to `docker/certs/seed.pem` and `docker/certs/seed-key.pem`.
+
+### 3. Enable the HTTPS block in `nginx/app.conf`
+
+Open [nginx/app.conf](nginx/app.conf) and make two edits:
+
+- Replace the `server { listen 80; ... }` block with the redirect block shown in the comments:
+
+  ```nginx
+  server {
+      listen 80;
+      server_name _;
+      return 301 https://$host$request_uri;
+  }
+  ```
+
+- Uncomment the `server { listen 443 ssl; ... }` block below it.
+
+### 4. Update `.env`
+
+```dotenv
+APP_URL=https://seed.local
+APP_DOMAIN=seed.local
+```
+
+### 5. Restart nginx
+
+```bash
+just restart nginx
+```
+
+`https://seed.local` now works with a green padlock — mkcert installs a local CA that the OS and all browsers trust. No certificate warnings.
+
+## REST API
+
+### Public endpoints (no auth)
+
+```bash
+curl https://seed.local/api/v1/status
+curl https://seed.local/api/v1/ping
+```
+
+### Issue a bearer token
+
+```bash
+curl -s -X POST https://seed.local/api/v1/auth/token \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@seed.local","password":"password","token_name":"my-token"}'
+# → {"token":"1|...","token_type":"Bearer","user":{...}}
+```
+
+A demo token is also printed to the container logs on first start:
+```bash
+just logs | grep "Demo API token"
+```
+
+### Private endpoints (Bearer token required)
+
+```bash
+TOKEN="1|your-token-here"
+
+curl -H "Authorization: Bearer $TOKEN" https://seed.local/api/v1/me
+curl -H "Authorization: Bearer $TOKEN" https://seed.local/api/v1/token/info
+curl -X DELETE -H "Authorization: Bearer $TOKEN" https://seed.local/api/v1/token
+```
+
+## Configuration
+
+All settings are in `.env` — single source of truth for Docker Compose, Laravel, and `just`.
+
+Key variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PHP_VERSION` | `8.3` | PHP image tag (triggers rebuild) |
+| `NODE_VERSION` | `20` | Node.js version (triggers rebuild) |
+| `APP_DOMAIN` | `seed.local` | Custom local domain for HTTPS |
+| `DB_DATABASE` | `seeddb` | PostgreSQL database name |
+| `DB_USERNAME` | `seeduser` | PostgreSQL user |
+| `DB_PASSWORD` | `secret` | PostgreSQL password |
+| `DEMO_USER_EMAIL` | `admin@seed.local` | Seeded user email |
+| `DEMO_USER_PASSWORD` | `password` | Seeded user password |
+| `HTTP_PORT` | `80` | nginx HTTP port |
+| `HTTPS_PORT` | `443` | nginx HTTPS port |
+
+**Config files editable on the host (no rebuild required):**
+
+| File | Purpose |
+|---|---|
+| `configs/php.ini` | PHP runtime settings |
+| `configs/php-fpm.d/www.conf` | FPM pool size, slow log |
+| `configs/msmtprc` | Mail relay (Mailpit / Gmail) |
+| `nginx/app.conf` | Virtual host, SSL block |
+| `nginx/ssl.conf` | TLS protocols and ciphers |
+| `docker/entrypoint.sh` | Container bootstrap logic |
+
+After editing any of these: `docker compose restart php` or `just restart nginx` — no rebuild.
+
+## Email
+
+**Development (default):** All mail is captured by Mailpit at `http://localhost:8025`. No real emails are sent.
+
+**Production:** Edit `configs/msmtprc`, fill in your Gmail App Password, and change the default account to `google`. Then update the `MAIL_*` variables in `.env`.
+
+> Gmail requires a [App Password](https://myaccount.google.com/apppasswords) (not your login password). Enable 2-Step Verification first.
+
+## Logs
+
+All logs are written to `logs/` and readable from the host even when Docker is stopped:
+
+| Directory | Contents |
+|---|---|
+| `logs/nginx/` | `access.log`, `error.log` |
+| `logs/php/` | `fpm-error.log`, `slow.log`, `error.log` |
+| `logs/app/` | Laravel's `laravel.log` |
+| `logs/postgres/` | `postgresql.log` |
+| `logs/mail/` | `msmtp.log`, `php_mail.log` |
+
+```bash
+just logs-app     # tail Laravel log
+just logs-nginx   # tail nginx access + error
+just logs-db      # tail PostgreSQL log
+just logs-mail    # tail mail log
+```
+
+## just recipes
+
+```
+just up              start containers
+just stop            stop containers
+just rebuild         rebuild PHP image and start
+just fresh           full reset (wipes DB, generated app files, logs)
+just restart <svc>   restart one service (nginx, php, postgres …)
+just ssl             generate HTTPS certs via mkcert
+just logs            follow PHP container stdout
+just logs-app        tail Laravel application log
+just logs-nginx      tail nginx logs
+just logs-db         tail PostgreSQL log
+just shell           bash inside PHP container
+just artisan <cmd>   run Artisan command
+just composer <cmd>  run Composer inside container
+just npm <cmd>       run npm inside container
+just db              PostgreSQL interactive shell
+just db-backup       dump DB to backup.sql
+just db-restore      restore DB from backup.sql
+just info            print all service URLs
+```
+
+## Project structure
+
+```
+the-seed/
+├── docker/
+│   ├── php/Dockerfile      # installs system deps and PHP extensions only
+│   ├── entrypoint.sh       # bootstrap: creates Laravel, migrates, seeds, starts fpm
+│   └── certs/              # mkcert SSL certs (gitignored)
+├── nginx/
+│   ├── nginx.conf          # global config, upstream php_fpm block
+│   ├── app.conf            # HTTP→HTTPS redirect + HTTPS server block
+│   └── ssl.conf            # TLS protocols and ciphers
+├── configs/
+│   ├── php.ini             # PHP runtime (bind-mounted, edit without rebuild)
+│   ├── php-fpm.d/www.conf  # FPM pool (bind-mounted, edit without rebuild)
+│   ├── msmtprc.example     # mail relay template
+│   └── fastcgi-params.conf # nginx FastCGI parameter overrides
+├── app/                    # Laravel project (auto-created on first start)
+├── logs/                   # all service logs (readable offline)
+│   ├── nginx/
+│   ├── php/
+│   ├── app/                # Laravel storage/logs mapped here
+│   ├── postgres/
+│   └── mail/
+├── database/               # PostgreSQL data volume (gitignored)
+├── .env.example            # single source of truth for all config
+├── docker-compose.yml
+├── Justfile
+└── README.md
+```
+
+## PostgreSQL tables after first start
+
+| Table | Purpose |
+|---|---|
+| `users` | Seeded demo user |
+| `sessions` | Browser sessions (`SESSION_DRIVER=database`) |
+| `personal_access_tokens` | Sanctum API tokens |
+| `migrations` | Migration history |
+| `jobs`, `failed_jobs`, `cache` | Laravel defaults |
+
+## Contributing
+
+Contributions are welcome. Please keep changes focused on the Docker/configuration layer. The `app/` directory is auto-generated and gitignored (only `app/.gitkeep` is committed) — any application-level examples should be injected by `docker/entrypoint.sh`.
+
+1. Fork the repo and create a feature branch
+2. Make changes in `docker/`, `nginx/`, `configs/`, or root config files
+3. Test with `just fresh` to verify a clean first-run experience
+4. Open a pull request with a clear description
+
+## License
+
+MIT

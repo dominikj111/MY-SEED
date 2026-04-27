@@ -1,0 +1,44 @@
+# Secrets — never commit
+.env
+configs/msmtprc
+
+# SSL certificates — generated locally by mkcert
+docker/certs/*.pem
+
+# Laravel generated files
+app/vendor/
+app/node_modules/
+app/.env
+app/storage/logs/
+app/storage/framework/cache/
+app/storage/framework/sessions/
+app/storage/framework/views/
+app/bootstrap/cache/
+
+# Logs — all log dirs are bind-mounted to logs/ and readable offline
+logs/nginx/*.log
+logs/php/*.log
+logs/app/*.log
+logs/postgres/*.log
+logs/mail/*.log
+
+# PostgreSQL data volume
+database/*
+!database/.gitkeep
+
+# Docker local overrides
+docker-compose.override.yml
+
+# Claude Code
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
