@@ -35,7 +35,7 @@ fresh:
     [ ! -f .env ]              && cp .env.example .env              && echo "Created .env from .env.example"
     [ ! -f configs/msmtprc ]   && cp configs/msmtprc.example configs/msmtprc && echo "Created configs/msmtprc from example"
     docker compose down -v
-    rm -rf database/* \
+    rm -rf database/data/* \
            app/vendor app/node_modules \
            logs/app/* logs/nginx/* logs/php/* logs/postgres/* logs/mail/*
     chmod +x docker/entrypoint.sh

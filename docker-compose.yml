@@ -27,8 +27,9 @@ services:
     container_name: seed-php
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
     volumes:
-      # Single .env shared by Docker Compose, Laravel, and just
-      - ./.env:/app/.env
+      # Root .env mounted outside /app to avoid virtiofs nested-mount conflict.
+      # Entrypoint symlinks /project.env → /app/.env on startup.
+      - ./.env:/project.env
       # Entrypoint bind-mounted — no rebuild needed when it changes
       - ./docker/entrypoint.sh:/entrypoint.sh
       # PHP config — edit on host, restart container (no rebuild)
@@ -55,7 +56,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - ./database:/var/lib/postgresql/data
+      - ./database/data:/var/lib/postgresql/data
       - ./logs/postgres:/var/log/postgresql
     env_file: .env
     # File-based logging so logs appear in logs/postgres/ on the host

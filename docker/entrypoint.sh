@@ -5,6 +5,14 @@ set -e
 
 echo "[seed] ── Starting container bootstrap ─────────────────────────────────"
 
+# ── 0. SYMLINK ROOT .env → /app/.env ─────────────────────────────────────────
+# The root .env is mounted at /project.env (not inside /app) to avoid virtiofs
+# nested-mount conflicts on Docker Desktop for Mac.  A symlink makes it
+# transparently available at /app/.env for Laravel and artisan.
+# Always force-create so a stale 0-byte file from a previous failed mount
+# attempt (Docker creates empty files at bind-mount targets) is replaced.
+ln -sf /project.env /app/.env
+
 # ── 1. CREATE LARAVEL PROJECT (first run only) ────────────────────────────────
 # app/ already contains our custom files (controllers, views, routes, models).
 # cp -n (no-clobber) means Laravel's defaults fill in everything else without
@@ -20,8 +28,8 @@ if [ ! -f "/app/composer.json" ]; then
 fi
 
 # ── 2. VERIFY .env IS MOUNTED ─────────────────────────────────────────────────
-if [ ! -f "/app/.env" ]; then
-    echo "[seed] ERROR: /app/.env not found. Is .env bind-mounted?"
+if [ ! -e "/app/.env" ]; then
+    echo "[seed] ERROR: /app/.env not found. Is /project.env mounted?"
     echo "[seed] Run: cp .env.example .env  then restart."
     exit 1
 fi
@@ -34,6 +42,17 @@ if [ ! -d "/app/vendor" ]; then
         --no-interaction \
         --prefer-dist \
         --optimize-autoloader \
+        --quiet
+fi
+
+# Sanctum is not included in a default Laravel install — require it if absent.
+# This runs once; subsequent container starts skip it (vendor/laravel/sanctum exists).
+if [ ! -d "/app/vendor/laravel/sanctum" ]; then
+    echo "[seed] Installing Laravel Sanctum..."
+    composer require laravel/sanctum \
+        --working-dir=/app \
+        --no-interaction \
+        --prefer-dist \
         --quiet
 fi
 
@@ -58,28 +77,31 @@ done
 echo "[seed] PostgreSQL is ready."
 
 # ── 5. APP KEY ────────────────────────────────────────────────────────────────
+# Read the key directly from the file (not from the env var Docker injects).
+# env_file: .env passes APP_KEY= (empty) into the container, so we must unset
+# it for the subprocess or Laravel 11 refuses to write a new key.
 APP_KEY_VALUE=$(grep "^APP_KEY=" /app/.env | cut -d'=' -f2)
 if [ -z "$APP_KEY_VALUE" ]; then
     echo "[seed] Generating application key..."
-    php /app/artisan key:generate --force
+    env -u APP_KEY php /app/artisan key:generate --force
 fi
 
 # ── 6. SANCTUM + SESSION TABLE + MIGRATE ─────────────────────────────────────
 
-# Publish Sanctum config if not already done (creates config/sanctum.php)
+# Publish Sanctum config and migrations using tags (Sanctum 4.x / Laravel 11+
+# no longer registers publishable resources without --tag).
 if [ ! -f "/app/config/sanctum.php" ]; then
     echo "[seed] Publishing Sanctum config..."
-    php /app/artisan vendor:publish \
-        --provider="Laravel\Sanctum\ServiceProvider" \
-        --force \
-        --quiet
+    php /app/artisan vendor:publish --tag=sanctum-config --quiet || true
+fi
+if ! compgen -G "/app/database/migrations/*personal_access_tokens*" > /dev/null 2>&1; then
+    echo "[seed] Publishing Sanctum migrations..."
+    php /app/artisan vendor:publish --tag=sanctum-migrations --quiet || true
 fi
 
-# Create sessions migration if not yet queued
-if php /app/artisan migrate:status 2>/dev/null | grep -q "sessions"; then
-    : # sessions migration already exists
-else
-    php /app/artisan session:table 2>/dev/null || true
+# Create sessions migration if the file doesn't already exist.
+if ! compgen -G "/app/database/migrations/*session*" > /dev/null 2>&1; then
+    php /app/artisan session:table >/dev/null 2>&1 || true
 fi
 
 echo "[seed] Running migrations..."
@@ -123,4 +145,11 @@ php /app/artisan route:clear  --quiet
 php /app/artisan view:clear   --quiet
 
 echo "[seed] ── Bootstrap complete. Starting php-fpm. ─────────────────────────"
+
+# Docker injects env vars from env_file at container start.  If APP_KEY was
+# empty then and was generated during bootstrap, php-fpm would inherit the old
+# empty value.  Re-export from the file so the correct key is in the environment.
+APP_KEY="$(sed -n 's/^APP_KEY=//p' /app/.env)"
+export APP_KEY
+
 exec php-fpm

@@ -1,15 +1,15 @@
 # No COPY commands in this file — every config is bind-mounted at runtime.
 # Rebuild only needed when system packages or PHP extensions change.
 
-ARG PHP_VERSION=8.3
+ARG PHP_VERSION=8.4
 FROM php:${PHP_VERSION}-fpm
 
 # System dependencies
 # libpq-dev   — required for pdo_pgsql and pgsql extensions
-# libpng-dev, libjpeg62-turbo-dev, libfreetype6-dev — required for GD
+# libpng-dev, libjpeg-dev, libfreetype6-dev — required for GD
 # libzip-dev  — required for zip extension
-# libxml2-dev — required for xml/soap extensions
-# libintl-dev — required for intl extension
+# libxml2-dev — required for xml extension
+# libonig-dev — required for mbstring extension
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
@@ -17,18 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     msmtp \
     libfreetype6-dev \
     libpng-dev \
-    libjpeg62-turbo-dev \
+    libjpeg-dev \
     libzip-dev \
     libxml2-dev \
-    libintl-dev \
+    libonig-dev \
     libpq-dev \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # GD must be configured before install to include JPEG and FreeType support
-RUN docker-php-ext-configure gd \
-    --with-freetype \
-    --with-jpeg
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg
 
 # Install PHP extensions
 RUN docker-php-ext-install \
@@ -39,7 +37,6 @@ RUN docker-php-ext-install \
     gd \
     zip \
     bcmath \
-    intl \
     pcntl \
     opcache
 
