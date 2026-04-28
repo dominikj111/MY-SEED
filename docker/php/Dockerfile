@@ -10,6 +10,7 @@ FROM php:${PHP_VERSION}-fpm
 # libzip-dev  — required for zip extension
 # libxml2-dev — required for xml extension
 # libonig-dev — required for mbstring extension
+# libicu-dev  — required for intl extension
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
@@ -22,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev \
     libonig-dev \
     libpq-dev \
+    libicu-dev \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
@@ -37,6 +39,7 @@ RUN docker-php-ext-install \
     gd \
     zip \
     bcmath \
+    intl \
     pcntl \
     opcache
 
