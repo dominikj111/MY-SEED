@@ -126,6 +126,92 @@ db-backup:
 db-restore:
     docker exec -i seed-postgres psql -U $DB_USERNAME -d $DB_DATABASE < backup.sql
 
+# ── Check ─────────────────────────────────────────────────────────────────────
+
+# Smoke-test all features: HTTP endpoints, auth, private API, email, DB tables, tools
+check:
+    #!/usr/bin/env bash
+    BASE="http://localhost:${HTTP_PORT:-80}"
+    PASS=0; FAILURES=0
+
+    ok()   { echo "  ✓  $1"; PASS=$((PASS+1)); }
+    fail() { echo "  ✗  $1"; FAILURES=$((FAILURES+1)); }
+
+    http_check() {
+        local label="$1" url="$2" want="${3:-200}"
+        local got
+        got=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+        [ "$got" = "$want" ] && ok "$label" || fail "$label — expected HTTP $want, got $got"
+    }
+
+    echo ""
+    echo "── HTTP endpoints ───────────────────────────────────────────────────"
+    http_check "Landing page     GET /"              "$BASE/"
+    http_check "Login page       GET /login"         "$BASE/login"
+    http_check "SPA              GET /spa/"           "$BASE/spa/"
+    http_check "Health           GET /up"             "$BASE/up"
+    http_check "Public API       GET /api/v1/status"  "$BASE/api/v1/status"
+    http_check "Public API       GET /api/v1/ping"    "$BASE/api/v1/ping"
+
+    echo ""
+    echo "── Sanctum bearer token ─────────────────────────────────────────────"
+    RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE/api/v1/auth/token" \
+        -H "Content-Type: application/json" \
+        -d "{\"email\":\"${DEMO_USER_EMAIL:-admin@seed.local}\",\"password\":\"${DEMO_USER_PASSWORD:-password}\"}")
+    CODE=$(echo "$RESP" | tail -1)
+    BODY=$(echo "$RESP" | sed '$d')
+    TOKEN=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))" 2>/dev/null)
+    if [ -n "$TOKEN" ]; then
+        ok "Token issued     POST /api/v1/auth/token → HTTP $CODE"
+        CODE2=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$BASE/api/v1/me")
+        [ "$CODE2" = "200" ] \
+            && ok "Private API      GET /api/v1/me (Bearer token)" \
+            || fail "Private API      GET /api/v1/me — HTTP $CODE2"
+    else
+        fail "Token issue      POST /api/v1/auth/token — HTTP $CODE"
+        fail "Private API      skipped (no token)"
+    fi
+
+    echo ""
+    echo "── Email (Mailpit) ──────────────────────────────────────────────────"
+    BEFORE=$(curl -s "http://localhost:${MAILPIT_WEB_PORT:-8025}/api/v1/messages" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo 0)
+    SEND=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/mail/send?to=check@seed.local")
+    AFTER=$(curl -s "http://localhost:${MAILPIT_WEB_PORT:-8025}/api/v1/messages" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin).get('total',0))" 2>/dev/null || echo 0)
+    [ "$SEND" = "200" ] \
+        && ok "Email sent       GET /mail/send" \
+        || fail "Email send       GET /mail/send — HTTP $SEND"
+    [ "$AFTER" -gt "$BEFORE" ] 2>/dev/null \
+        && ok "Mailpit captured the message ($AFTER total in inbox)" \
+        || fail "Mailpit inbox    message count did not increase"
+
+    echo ""
+    echo "── Database (PostgreSQL) ────────────────────────────────────────────"
+    for table in users sessions personal_access_tokens migrations; do
+        COUNT=$(docker exec seed-postgres psql -U "$DB_USERNAME" -d "$DB_DATABASE" \
+            -tAc "SELECT COUNT(*) FROM $table" 2>/dev/null)
+        [ -n "$COUNT" ] \
+            && ok "Table '$table' ($COUNT rows)" \
+            || fail "Table '$table' not found"
+    done
+
+    echo ""
+    echo "── Dev tools ────────────────────────────────────────────────────────"
+    http_check "Mailpit UI       http://localhost:${MAILPIT_WEB_PORT:-8025}" \
+        "http://localhost:${MAILPIT_WEB_PORT:-8025}/"
+    http_check "Adminer          http://localhost:${ADMINER_PORT:-8081}" \
+        "http://localhost:${ADMINER_PORT:-8081}/"
+
+    echo ""
+    TOTAL=$((PASS + FAILURES))
+    if [ "$FAILURES" = "0" ]; then
+        echo "  All $TOTAL checks passed."
+    else
+        echo "  $PASS / $TOTAL passed  —  $FAILURES failed."
+    fi
+    echo ""
+
 # ── Info ──────────────────────────────────────────────────────────────────────
 
 # Print all service URLs

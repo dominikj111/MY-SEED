@@ -9,7 +9,7 @@ A ready-to-use local development environment you can clone and build on. Ships w
 | Layer | Technology |
 |---|---|
 | Web server / reverse proxy | nginx (alpine) |
-| Application | PHP 8.3-FPM · Laravel (latest) |
+| Application | PHP 8.4-FPM · Laravel (latest) |
 | Database | PostgreSQL 16 |
 | Email (dev) | Mailpit — catches all outgoing mail |
 | Email (prod) | Gmail SMTP via msmtp App Password |
@@ -44,6 +44,58 @@ On first start the entrypoint automatically:
 ```bash
 just logs    # watch bootstrap progress
 just info    # print all service URLs once ready
+just check   # smoke-test every feature (see below)
+```
+
+## What's available after `just up`
+
+Once the bootstrap completes (`just logs` shows "Bootstrap complete"), everything below is live and working:
+
+| Feature | How to try it |
+|---|---|
+| **Landing page** | `http://localhost` |
+| **Session login** | `http://localhost/login` → `admin@seed.local` / `password` |
+| **Dashboard** | `http://localhost/dashboard` — protected, live DB stats |
+| **Public API** | `curl http://localhost/api/v1/status` |
+| **Bearer token** | `curl -X POST http://localhost/api/v1/auth/token -H 'Content-Type: application/json' -d '{"email":"admin@seed.local","password":"password"}'` |
+| **Private API** | `curl -H 'Authorization: Bearer <token>' http://localhost/api/v1/me` |
+| **SPA** | `http://localhost/spa/` — vanilla JS fetching the API |
+| **Email** | `http://localhost/mail/send?to=you@example.com` → check Mailpit |
+| **Mailpit** | `http://localhost:8025` — all outgoing mail is captured here |
+| **Adminer** | `http://localhost:8081` — PostgreSQL browser (server: `postgres`) |
+
+Run `just check` to verify all of the above in one shot:
+
+```text
+$ just check
+
+── HTTP endpoints ───────────────────────────────────────────────────
+  ✓  Landing page     GET /
+  ✓  Login page       GET /login
+  ✓  SPA              GET /spa/
+  ✓  Health           GET /up
+  ✓  Public API       GET /api/v1/status
+  ✓  Public API       GET /api/v1/ping
+
+── Sanctum bearer token ─────────────────────────────────────────────
+  ✓  Token issued     POST /api/v1/auth/token → HTTP 201
+  ✓  Private API      GET /api/v1/me (Bearer token)
+
+── Email (Mailpit) ──────────────────────────────────────────────────
+  ✓  Email sent       GET /mail/send
+  ✓  Mailpit captured the message (3 total in inbox)
+
+── Database (PostgreSQL) ────────────────────────────────────────────
+  ✓  Table 'users' (1 rows)
+  ✓  Table 'sessions' (1 rows)
+  ✓  Table 'personal_access_tokens' (2 rows)
+  ✓  Table 'migrations' (5 rows)
+
+── Dev tools ────────────────────────────────────────────────────────
+  ✓  Mailpit UI       http://localhost:8025
+  ✓  Adminer          http://localhost:8081
+
+  All 14 checks passed.
 ```
 
 ## Access
@@ -205,12 +257,13 @@ just logs-mail    # tail mail log
 
 ## just recipes
 
-```
+```text
 just up              start containers
 just stop            stop containers
 just rebuild         rebuild PHP image and start
 just fresh           full reset (wipes DB, generated app files, logs)
 just restart <svc>   restart one service (nginx, php, postgres …)
+just check           smoke-test all features (HTTP, auth, email, DB, tools)
 just ssl             generate HTTPS certs via mkcert
 just logs            follow PHP container stdout
 just logs-app        tail Laravel application log
@@ -269,11 +322,11 @@ the-seed/
 
 ## Contributing
 
-Contributions are welcome. Please keep changes focused on the Docker/configuration layer. The `app/` directory is auto-generated and gitignored (only `app/.gitkeep` is committed) — any application-level examples should be injected by `docker/entrypoint.sh`.
+Contributions are welcome. The `app/` directory contains only the custom source files that survive `composer create-project` (controllers, models, routes, views, seeders, `bootstrap/app.php`). Standard Laravel boilerplate is auto-generated on first run and gitignored — don't commit it.
 
 1. Fork the repo and create a feature branch
-2. Make changes in `docker/`, `nginx/`, `configs/`, or root config files
-3. Test with `just fresh` to verify a clean first-run experience
+2. Make changes in `docker/`, `nginx/`, `configs/`, `app/`, or root config files
+3. Test with `just fresh` then `just check` to verify a clean first-run experience
 4. Open a pull request with a clear description
 
 ## License
