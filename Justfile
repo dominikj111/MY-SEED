@@ -37,7 +37,7 @@ fresh:
     docker compose down -v
     rm -rf database/data/* \
            seed-laravel/vendor seed-laravel/node_modules \
-           logs/app/* logs/nginx/* logs/php/* logs/postgres/* logs/mail/* logs/python/*
+           logs/app/* logs/nginx/* logs/php/* logs/postgres/* logs/mail/* logs/python/* logs/nest/*
     chmod +x docker/entrypoint.sh
     docker compose up -d --build
 
@@ -197,6 +197,43 @@ check:
     done
 
     echo ""
+    echo "── NestJS · HTTP endpoints ──────────────────────────────────────────"
+    http_check "Landing page     GET /nest/"                    "$BASE/nest/"
+    http_check "Login page       GET /nest/login"               "$BASE/nest/login"
+    http_check "Public API       GET /nest/api/v1/status"       "$BASE/nest/api/v1/status"
+    http_check "Public API       GET /nest/api/v1/ping"         "$BASE/nest/api/v1/ping"
+    http_check "API Docs         GET /nest/api/v1/docs"         "$BASE/nest/api/v1/docs"
+
+    echo ""
+    echo "── NestJS · Bearer token ────────────────────────────────────────────"
+    NEST_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE/nest/api/v1/auth/token" \
+        -H "Content-Type: application/json" \
+        -d "{\"email\":\"${DEMO_USER_EMAIL:-admin@seed.local}\",\"password\":\"${DEMO_USER_PASSWORD:-password}\"}")
+    NEST_CODE=$(echo "$NEST_RESP" | tail -1)
+    NEST_BODY=$(echo "$NEST_RESP" | sed '$d')
+    NEST_TOKEN=$(echo "$NEST_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))" 2>/dev/null)
+    if [ -n "$NEST_TOKEN" ]; then
+        ok "Token issued     POST /nest/api/v1/auth/token → HTTP $NEST_CODE"
+        NEST_CODE2=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $NEST_TOKEN" "$BASE/nest/api/v1/me")
+        [ "$NEST_CODE2" = "200" ] \
+            && ok "Private API      GET /nest/api/v1/me (Bearer token)" \
+            || fail "Private API      GET /nest/api/v1/me — HTTP $NEST_CODE2"
+    else
+        fail "Token issue      POST /nest/api/v1/auth/token — HTTP $NEST_CODE"
+        fail "Private API      skipped (no token)"
+    fi
+
+    echo ""
+    echo "── NestJS · Database (PostgreSQL) ───────────────────────────────────"
+    for table in nest_users nest_api_tokens; do
+        COUNT=$(docker exec seed-postgres psql -U "$DB_USERNAME" -d "$DB_DATABASE" \
+            -tAc "SELECT COUNT(*) FROM $table" 2>/dev/null)
+        [ -n "$COUNT" ] \
+            && ok "Table '$table' ($COUNT rows)" \
+            || fail "Table '$table' not found"
+    done
+
+    echo ""
     echo "── Python · HTTP endpoints ──────────────────────────────────────────"
     http_check "Landing page     GET /py/"                   "$BASE/py/"
     http_check "Login page       GET /py/login/"             "$BASE/py/login/"
@@ -249,6 +286,28 @@ check:
     fi
     echo ""
 
+# ── NestJS ────────────────────────────────────────────────────────────────────
+
+# Open bash shell inside NestJS container
+nest-shell:
+    docker exec -it seed-nest bash
+
+# Run a command inside the NestJS container: just nest-exec npx nest info
+nest-exec *args:
+    docker exec -it seed-nest {{args}}
+
+# Follow NestJS container logs
+logs-nest:
+    docker compose logs -f nest
+
+# Tail NestJS application log (readable offline from logs/nest/)
+logs-nest-app:
+    tail -f logs/nest/app.log
+
+# Rebuild NestJS image then start
+nest-rebuild:
+    docker compose up -d --build nest
+
 # ── Python (Django + FastAPI) ─────────────────────────────────────────────────
 
 # Open bash shell inside Python container
@@ -282,6 +341,15 @@ info:
     @echo "  Public API:     http://localhost:${HTTP_PORT}/api/v1/status"
     @echo "  Private API:    http://localhost:${HTTP_PORT}/api/v1/me  (Bearer token)"
     @echo "  SPA:            http://localhost:${HTTP_PORT}/spa/"
+    @echo ""
+    @echo "  ── NestJS / TypeORM ───────────────────────────────────────────"
+    @echo "  Home:           http://localhost:${HTTP_PORT}/nest/"
+    @echo "  Login:          http://localhost:${HTTP_PORT}/nest/login"
+    @echo "  Dashboard:      http://localhost:${HTTP_PORT}/nest/dashboard"
+    @echo "  Contact form:   http://localhost:${HTTP_PORT}/nest/contact"
+    @echo "  Public API:     http://localhost:${HTTP_PORT}/nest/api/v1/status"
+    @echo "  Private API:    http://localhost:${HTTP_PORT}/nest/api/v1/me  (Bearer token)"
+    @echo "  API Docs:       http://localhost:${HTTP_PORT}/nest/api/v1/docs"
     @echo ""
     @echo "  ── Python / Django + FastAPI ───────────────────────────────────"
     @echo "  Home:           http://localhost:${HTTP_PORT}/py/"

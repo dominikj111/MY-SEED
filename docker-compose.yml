@@ -1,5 +1,19 @@
 services:
 
+  nest:
+    build:
+      context: ./seed-nest
+    container_name: seed-nest
+    entrypoint: ["/bin/bash", "/app/entrypoint.sh"]
+    volumes:
+      - ./seed-nest:/app
+      - ./logs/nest:/var/log/nest
+    env_file: .env
+    depends_on:
+      - postgres
+      - mailpit
+    restart: unless-stopped
+
   python:
     build:
       context: ./seed-django
@@ -31,6 +45,7 @@ services:
     depends_on:
       - php
       - python
+      - nest
     restart: unless-stopped
 
   php:

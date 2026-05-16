@@ -7,40 +7,44 @@ docker/certs/*.pem
 
 # Laravel auto-generated infrastructure — created at first run by entrypoint.sh.
 # Only our custom files are tracked (controllers, models, routes, views, seeders).
-app/vendor/
-app/node_modules/
-app/.env
-app/composer.json
-app/composer.lock
-app/artisan
-app/package.json
-app/package-lock.json
-app/vite.config.js
-app/phpunit.xml
-app/.editorconfig
-app/.env.example
-app/.gitattributes
-app/.gitignore
-app/.npmrc
-app/README.md
-app/config/
-app/app/Http/Controllers/Controller.php
-app/app/Providers/
-app/database/factories/
-app/database/migrations/
-app/database/.gitignore
-app/public/.htaccess
-app/public/favicon.ico
-app/public/index.php
-app/public/robots.txt
-app/public/build/
-app/resources/css/
-app/resources/js/
-app/routes/console.php
-app/storage/
-app/tests/
-app/bootstrap/cache/
-app/bootstrap/providers.php
+seed-laravel/vendor/
+seed-laravel/node_modules/
+seed-laravel/.env
+seed-laravel/composer.json
+seed-laravel/composer.lock
+seed-laravel/artisan
+seed-laravel/package.json
+seed-laravel/package-lock.json
+seed-laravel/vite.config.js
+seed-laravel/phpunit.xml
+seed-laravel/.editorconfig
+seed-laravel/.env.example
+seed-laravel/.gitattributes
+seed-laravel/.gitignore
+seed-laravel/.npmrc
+seed-laravel/README.md
+seed-laravel/config/
+seed-laravel/app/Http/Controllers/Controller.php
+seed-laravel/app/Providers/
+seed-laravel/database/factories/
+seed-laravel/database/migrations/
+seed-laravel/database/.gitignore
+seed-laravel/public/.htaccess
+seed-laravel/public/favicon.ico
+seed-laravel/public/index.php
+seed-laravel/public/robots.txt
+seed-laravel/public/build/
+seed-laravel/resources/css/
+seed-laravel/resources/js/
+seed-laravel/routes/console.php
+seed-laravel/storage/
+seed-laravel/tests/
+seed-laravel/bootstrap/cache/
+seed-laravel/bootstrap/providers.php
+
+# NestJS — node_modules are installed at container startup, not committed
+seed-nest/node_modules/
+seed-nest/dist/
 
 # Logs — all log dirs are bind-mounted to logs/ and readable offline
 # Ignore everything inside each dir; .gitkeep files keep the dirs in git.
@@ -49,6 +53,8 @@ logs/php/*
 logs/app/*
 logs/postgres/*
 logs/mail/*
+logs/python/*
+logs/nest/*
 
 # PostgreSQL data volume
 database/data/
