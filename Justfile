@@ -36,7 +36,7 @@ fresh:
     [ ! -f configs/msmtprc ]   && cp configs/msmtprc.example configs/msmtprc && echo "Created configs/msmtprc from example"
     docker compose down -v
     rm -rf database/data/* \
-           app/vendor app/node_modules \
+           seed-laravel/vendor seed-laravel/node_modules \
            logs/app/* logs/nginx/* logs/php/* logs/postgres/* logs/mail/* logs/python/*
     chmod +x docker/entrypoint.sh
     docker compose up -d --build

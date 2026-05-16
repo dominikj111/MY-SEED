@@ -26,7 +26,7 @@ services:
       - ./nginx/ssl.conf:/etc/nginx/ssl.conf:ro
       - ./configs/fastcgi-params.conf:/etc/nginx/conf.d/fastcgi-params.conf:ro
       - ./docker/certs:/etc/nginx/certs:ro
-      - ./app/public:/app/public:ro
+      - ./seed-laravel/public:/app/public:ro
       - ./logs/nginx:/var/log/nginx
     depends_on:
       - php
@@ -53,11 +53,11 @@ services:
       # Mail config — copy from msmtprc.example to get started
       - ./configs/msmtprc:/etc/msmtprc:ro
       # Application code
-      - ./app:/app
+      - ./seed-laravel:/app
       # Logs — all accessible on host even when Docker is stopped
       - ./logs/php:/var/log/php
       - ./logs/mail:/var/log/mail
-      # Laravel application logs override the parent ./app mount for this path
+      # Laravel application logs override the parent ./seed-laravel mount for this path
       - ./logs/app:/app/storage/logs
     env_file: .env
     depends_on:

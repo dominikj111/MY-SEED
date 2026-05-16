@@ -4,3 +4,4 @@
 2026-05-16 08:21:03,983 INFO web.views User admin@seed.local logged out
 2026-05-16 08:21:11,338 INFO web.views User admin@seed.local logged in
 2026-05-16 08:44:21,418 INFO api.routers.private API token issued for user admin@seed.local
+2026-05-16 08:50:16,633 INFO api.routers.private API token issued for user admin@seed.local

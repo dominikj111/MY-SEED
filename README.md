@@ -482,7 +482,7 @@ the-seed/
 │   ├── php-fpm.d/www.conf
 │   ├── msmtprc.example
 │   └── fastcgi-params.conf
-├── app/                    # Laravel project (auto-created on first start, gitignored)
+├── seed-laravel/           # Laravel project (auto-created on first start, gitignored)
 ├── logs/
 │   ├── nginx/
 │   ├── php/
@@ -526,12 +526,12 @@ Both stacks share the same `seeddb` database. Table names don't conflict — Dja
 
 Contributions are welcome.
 
-**PHP app:** The `app/` directory contains only custom source files (controllers, models, routes, views, seeders). Standard Laravel boilerplate is auto-generated on first run and gitignored.
+**PHP app:** The `seed-laravel/` directory contains only custom source files (controllers, models, routes, views, seeders). Standard Laravel boilerplate is auto-generated on first run and gitignored.
 
 **Python app:** The entire `seed-django/` directory is committed. No generated files — what you see is what runs.
 
 1. Fork the repo and create a feature branch
-2. Make changes in `docker/`, `nginx/`, `configs/`, `app/`, or `seed-django/`
+2. Make changes in `docker/`, `nginx/`, `configs/`, `seed-laravel/`, or `seed-django/`
 3. Test with `just fresh` then `just check` to verify a clean first-run experience
 4. Open a pull request with a clear description
 
