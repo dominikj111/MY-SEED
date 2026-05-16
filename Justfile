@@ -37,7 +37,7 @@ fresh:
     docker compose down -v
     rm -rf database/data/* \
            app/vendor app/node_modules \
-           logs/app/* logs/nginx/* logs/php/* logs/postgres/* logs/mail/*
+           logs/app/* logs/nginx/* logs/php/* logs/postgres/* logs/mail/* logs/python/*
     chmod +x docker/entrypoint.sh
     docker compose up -d --build
 
@@ -197,6 +197,43 @@ check:
     done
 
     echo ""
+    echo "── Python · HTTP endpoints ──────────────────────────────────────────"
+    http_check "Landing page     GET /py/"                   "$BASE/py/"
+    http_check "Login page       GET /py/login/"             "$BASE/py/login/"
+    http_check "Public API       GET /py/api/v1/status"      "$BASE/py/api/v1/status"
+    http_check "Public API       GET /py/api/v1/ping"        "$BASE/py/api/v1/ping"
+    http_check "API Docs         GET /py/api/v1/docs"        "$BASE/py/api/v1/docs"
+
+    echo ""
+    echo "── Python · Bearer token ────────────────────────────────────────────"
+    PY_RESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE/py/api/v1/auth/token" \
+        -H "Content-Type: application/json" \
+        -d "{\"email\":\"${DEMO_USER_EMAIL:-admin@seed.local}\",\"password\":\"${DEMO_USER_PASSWORD:-password}\"}")
+    PY_CODE=$(echo "$PY_RESP" | tail -1)
+    PY_BODY=$(echo "$PY_RESP" | sed '$d')
+    PY_TOKEN=$(echo "$PY_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin).get('token',''))" 2>/dev/null)
+    if [ -n "$PY_TOKEN" ]; then
+        ok "Token issued     POST /py/api/v1/auth/token → HTTP $PY_CODE"
+        PY_CODE2=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $PY_TOKEN" "$BASE/py/api/v1/me")
+        [ "$PY_CODE2" = "200" ] \
+            && ok "Private API      GET /py/api/v1/me (Bearer token)" \
+            || fail "Private API      GET /py/api/v1/me — HTTP $PY_CODE2"
+    else
+        fail "Token issue      POST /py/api/v1/auth/token — HTTP $PY_CODE"
+        fail "Private API      skipped (no token)"
+    fi
+
+    echo ""
+    echo "── Python · Database (PostgreSQL) ───────────────────────────────────"
+    for table in auth_user tokens_apitoken django_migrations django_session; do
+        COUNT=$(docker exec seed-postgres psql -U "$DB_USERNAME" -d "$DB_DATABASE" \
+            -tAc "SELECT COUNT(*) FROM $table" 2>/dev/null)
+        [ -n "$COUNT" ] \
+            && ok "Table '$table' ($COUNT rows)" \
+            || fail "Table '$table' not found"
+    done
+
+    echo ""
     echo "── Dev tools ────────────────────────────────────────────────────────"
     http_check "Mailpit UI       http://localhost:${MAILPIT_WEB_PORT:-8025}" \
         "http://localhost:${MAILPIT_WEB_PORT:-8025}/"
@@ -212,17 +249,50 @@ check:
     fi
     echo ""
 
+# ── Python (Django + FastAPI) ─────────────────────────────────────────────────
+
+# Open bash shell inside Python container
+py-shell:
+    docker exec -it seed-python bash
+
+# Run a Django management command: just py-manage migrate
+py-manage *args:
+    docker exec -it seed-python python manage.py {{args}}
+
+# Follow Python container logs
+logs-python:
+    docker compose logs -f python
+
+# Tail Python application log (readable offline from logs/python/)
+logs-python-app:
+    tail -f logs/python/app.log
+
+# Rebuild Python image then start
+py-rebuild:
+    docker compose up -d --build python
+
 # ── Info ──────────────────────────────────────────────────────────────────────
 
 # Print all service URLs
 info:
     @echo ""
-    @echo "  App (HTTPS):    https://${APP_DOMAIN}"
+    @echo "  ── PHP / Laravel ──────────────────────────────────────────────"
     @echo "  App (HTTP):     http://localhost:${HTTP_PORT}"
-    @echo "  Login:          https://${APP_DOMAIN}/login"
-    @echo "  Public API:     https://${APP_DOMAIN}/api/v1/status"
-    @echo "  Private API:    https://${APP_DOMAIN}/api/v1/me  (Bearer token)"
-    @echo "  SPA:            https://${APP_DOMAIN}/spa/"
+    @echo "  Login:          http://localhost:${HTTP_PORT}/login"
+    @echo "  Public API:     http://localhost:${HTTP_PORT}/api/v1/status"
+    @echo "  Private API:    http://localhost:${HTTP_PORT}/api/v1/me  (Bearer token)"
+    @echo "  SPA:            http://localhost:${HTTP_PORT}/spa/"
+    @echo ""
+    @echo "  ── Python / Django + FastAPI ───────────────────────────────────"
+    @echo "  Home:           http://localhost:${HTTP_PORT}/py/"
+    @echo "  Login:          http://localhost:${HTTP_PORT}/py/login/"
+    @echo "  Dashboard:      http://localhost:${HTTP_PORT}/py/dashboard/"
+    @echo "  Contact form:   http://localhost:${HTTP_PORT}/py/contact/"
+    @echo "  Public API:     http://localhost:${HTTP_PORT}/py/api/v1/status"
+    @echo "  Private API:    http://localhost:${HTTP_PORT}/py/api/v1/me  (Bearer token)"
+    @echo "  API Docs:       http://localhost:${HTTP_PORT}/py/api/v1/docs"
+    @echo ""
+    @echo "  ── Shared services ────────────────────────────────────────────"
     @echo "  Mailpit:        http://localhost:${MAILPIT_WEB_PORT}"
     @echo "  Adminer:        http://localhost:${ADMINER_PORT}"
     @echo "  PostgreSQL:     localhost:${POSTGRES_PORT}  db=${DB_DATABASE}  user=${DB_USERNAME}"

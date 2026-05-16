@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · the-seed Python{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="card text-center shadow-sm border-primary">
+      <div class="card-body">
+        <div class="display-6 fw-bold text-primary">{{ stats.user_count }}</div>
+        <div class="text-muted small">Users in DB</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card text-center shadow-sm border-success">
+      <div class="card-body">
+        <div class="display-6 fw-bold text-success">{{ stats.token_count }}</div>
+        <div class="text-muted small">API Tokens</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card text-center shadow-sm border-info">
+      <div class="card-body">
+        <div class="display-6 fw-bold text-info">{{ stats.session_user.username }}</div>
+        <div class="text-muted small">Logged in as</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-semibold">Your API Tokens</div>
+  <div class="card-body">
+    {% if tokens %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Token (truncated)</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in tokens %}
+            <tr>
+              <td>{{ t.name }}</td>
+              <td><code>{{ t.token|slice:":16" }}…</code></td>
+              <td>{{ t.created_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">No tokens yet. Issue one via the API.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header fw-semibold">Quick API test</div>
+  <div class="card-body">
+    <pre><code># Issue a token for your account
+curl -s -X POST http://localhost/py/api/v1/auth/token \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"{{ user.email }}","password":"password"}' | python3 -m json.tool
+
+# Use it
+curl -H 'Authorization: Bearer &lt;token&gt;' http://localhost/py/api/v1/me</code></pre>
+  </div>
+</div>
+{% endblock %}

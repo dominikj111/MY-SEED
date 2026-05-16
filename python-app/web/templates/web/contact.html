@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Contact · the-seed Python{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <h2 class="mb-4">Contact</h2>
+
+    {% if sent %}
+      <div class="alert alert-success">
+        Message sent! Check <a href="http://localhost:8025" target="_blank">Mailpit</a> to see it.
+      </div>
+    {% endif %}
+
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="post" action="/py/contact/">
+          {% csrf_token %}
+
+          <div class="mb-3">
+            <label class="form-label" for="id_name">Name</label>
+            {{ form.name }}
+            {% if form.name.errors %}
+              <div class="text-danger small">{{ form.name.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="id_email">Email</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+              <div class="text-danger small">{{ form.email.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label" for="id_message">Message</label>
+            {{ form.message }}
+            {% if form.message.errors %}
+              <div class="text-danger small">{{ form.message.errors.0 }}</div>
+            {% endif %}
+          </div>
+
+          <button type="submit" class="btn btn-primary">Send Message</button>
+          <a href="/py/dashboard/" class="btn btn-link">Back to Dashboard</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

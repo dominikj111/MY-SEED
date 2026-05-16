@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Login · the-seed Python{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h4 class="card-title mb-4">Sign in</h4>
+
+        {% if error %}
+          <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/py/login/">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ next }}">
+
+          <div class="mb-3">
+            <label class="form-label" for="email">Email</label>
+            <input id="email" name="email" type="email" class="form-control"
+                   value="admin@seed.local" required autofocus>
+          </div>
+          <div class="mb-4">
+            <label class="form-label" for="password">Password</label>
+            <input id="password" name="password" type="password" class="form-control"
+                   value="password" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Login</button>
+        </form>
+
+        <p class="text-muted small mt-3 mb-0 text-center">
+          Demo: <code>admin@seed.local</code> / <code>password</code>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

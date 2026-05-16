@@ -1,5 +1,19 @@
 services:
 
+  python:
+    build:
+      context: ./python-app
+    container_name: seed-python
+    entrypoint: ["/bin/bash", "/app/entrypoint.sh"]
+    volumes:
+      - ./python-app:/app
+      - ./logs/python:/var/log/python
+    env_file: .env
+    depends_on:
+      - postgres
+      - mailpit
+    restart: unless-stopped
+
   nginx:
     image: nginx:alpine
     container_name: seed-nginx
@@ -16,6 +30,7 @@ services:
       - ./logs/nginx:/var/log/nginx
     depends_on:
       - php
+      - python
     restart: unless-stopped
 
   php:

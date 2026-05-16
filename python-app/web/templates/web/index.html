@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}the-seed · Python · Home{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 text-center">
+    <h1 class="display-5 fw-bold mb-3">the-seed <span class="badge bg-primary">Python</span></h1>
+    <p class="lead text-muted mb-4">
+      Django + FastAPI · PostgreSQL · Mailpit · Docker
+    </p>
+
+    <div class="row g-3 mb-5">
+      <div class="col-sm-6">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Session Auth</h5>
+            <p class="card-text text-muted small">Django's built-in auth — login, protected views, CSRF.</p>
+            <a href="/py/login/" class="btn btn-primary btn-sm">Login</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">REST API</h5>
+            <p class="card-text text-muted small">FastAPI — public endpoints and Bearer-token protected routes.</p>
+            <a href="/py/api/v1/status" class="btn btn-outline-secondary btn-sm" target="_blank">Public API</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Contact Form</h5>
+            <p class="card-text text-muted small">Sends mail via Mailpit. Login required.</p>
+            <a href="/py/contact/" class="btn btn-outline-primary btn-sm">Contact</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-sm-6">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">API Docs</h5>
+            <p class="card-text text-muted small">Interactive FastAPI Swagger UI.</p>
+            <a href="/py/api/v1/docs" class="btn btn-outline-secondary btn-sm" target="_blank">Swagger</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card text-start shadow-sm">
+      <div class="card-header fw-semibold">Quick API reference</div>
+      <div class="card-body">
+        <pre class="mb-2"><code># Public
+curl http://localhost/py/api/v1/status
+curl http://localhost/py/api/v1/ping
+
+# Issue a token
+curl -s -X POST http://localhost/py/api/v1/auth/token \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@seed.local","password":"password"}'
+
+# Private (replace TOKEN)
+curl -H 'Authorization: Bearer TOKEN' http://localhost/py/api/v1/me</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
