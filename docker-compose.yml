@@ -2,11 +2,11 @@ services:
 
   python:
     build:
-      context: ./python-app
+      context: ./seed-django
     container_name: seed-python
     entrypoint: ["/bin/bash", "/app/entrypoint.sh"]
     volumes:
-      - ./python-app:/app
+      - ./seed-django:/app
       - ./logs/python:/var/log/python
     env_file: .env
     depends_on:

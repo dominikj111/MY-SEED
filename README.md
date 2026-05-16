@@ -180,7 +180,7 @@ $ just check
 
 ## Python seed — architecture
 
-The Python service combines Django and FastAPI in a single uvicorn ASGI process. A lightweight dispatcher in [`config/asgi.py`](python-app/config/asgi.py) routes requests by path prefix:
+The Python service combines Django and FastAPI in a single uvicorn ASGI process. A lightweight dispatcher in [`config/asgi.py`](seed-django/config/asgi.py) routes requests by path prefix:
 
 ```
 nginx /py/*
@@ -196,7 +196,7 @@ nginx /py/*
 ### Key files
 
 ```
-python-app/
+seed-django/
 ├── config/
 │   ├── asgi.py        # ASGI dispatcher: FastAPI vs Django by path
 │   ├── settings.py    # all Django settings (DB, email, logging, auth backend)
@@ -363,8 +363,8 @@ All settings live in `.env` — one file drives Docker Compose, Laravel, and the
 | `nginx/app.conf` | Virtual host, `/py/` proxy block, SSL block |
 | `nginx/ssl.conf` | TLS protocols and ciphers |
 | `docker/entrypoint.sh` | PHP container bootstrap |
-| `python-app/entrypoint.sh` | Python container bootstrap |
-| `python-app/config/settings.py` | Django settings |
+| `seed-django/entrypoint.sh` | Python container bootstrap |
+| `seed-django/config/settings.py` | Django settings |
 
 After editing nginx or PHP config: `just restart nginx` or `docker compose restart php` — no rebuild.  
 After editing Python code: uvicorn `--reload` picks it up automatically.
@@ -375,7 +375,7 @@ After editing Python code: uvicorn `--reload` picks it up automatically.
 
 **PHP production:** Edit `configs/msmtprc`, fill in your Gmail App Password, and change the default account to `google`. Then update the `MAIL_*` variables in `.env`.
 
-**Python production:** Update `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, and credentials in `python-app/config/settings.py` (or add corresponding env vars).
+**Python production:** Update `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, and credentials in `seed-django/config/settings.py` (or add corresponding env vars).
 
 > Gmail requires an [App Password](https://myaccount.google.com/apppasswords) (not your login password). Enable 2-Step Verification first.
 
@@ -397,7 +397,7 @@ just logs-app          # tail Laravel log
 just logs-nginx        # tail nginx access + error
 just logs-db           # tail PostgreSQL log
 just logs-mail         # tail mail log
-just logs-python-app   # tail Python application log
+just logs-seed-django   # tail Python application log
 ```
 
 ## just recipes
@@ -432,7 +432,7 @@ just npm <cmd>       run npm inside container
 just py-shell           bash inside Python container
 just py-manage <cmd>    run Django management command
 just logs-python        follow Python container stdout
-just logs-python-app    tail Python application log
+just logs-seed-django    tail Python application log
 
 ── Database ───────────────────────────────────────────────────────────
 just db              PostgreSQL interactive shell
@@ -452,7 +452,7 @@ the-seed/
 │   ├── nginx.conf          # global config, upstreams: php_fpm + python_asgi
 │   ├── app.conf            # routes: / → PHP, /py/ → Python, SSL block
 │   └── ssl.conf            # TLS protocols and ciphers
-├── python-app/             # Python seed (committed in full)
+├── seed-django/             # Python seed (committed in full)
 │   ├── Dockerfile          # python:3.12-slim + psycopg + pip install
 │   ├── entrypoint.sh       # wait for PG → migrate → seed → uvicorn
 │   ├── requirements.txt    # Django, FastAPI, uvicorn, psycopg
@@ -528,10 +528,10 @@ Contributions are welcome.
 
 **PHP app:** The `app/` directory contains only custom source files (controllers, models, routes, views, seeders). Standard Laravel boilerplate is auto-generated on first run and gitignored.
 
-**Python app:** The entire `python-app/` directory is committed. No generated files — what you see is what runs.
+**Python app:** The entire `seed-django/` directory is committed. No generated files — what you see is what runs.
 
 1. Fork the repo and create a feature branch
-2. Make changes in `docker/`, `nginx/`, `configs/`, `app/`, or `python-app/`
+2. Make changes in `docker/`, `nginx/`, `configs/`, `app/`, or `seed-django/`
 3. Test with `just fresh` then `just check` to verify a clean first-run experience
 4. Open a pull request with a clear description
 

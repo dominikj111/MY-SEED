@@ -264,7 +264,7 @@ logs-python:
     docker compose logs -f python
 
 # Tail Python application log (readable offline from logs/python/)
-logs-python-app:
+logs-seed-django:
     tail -f logs/python/app.log
 
 # Rebuild Python image then start
