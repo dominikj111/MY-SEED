@@ -41,6 +41,7 @@ services:
       - ./configs/fastcgi-params.conf:/etc/nginx/conf.d/fastcgi-params.conf:ro
       - ./docker/certs:/etc/nginx/certs:ro
       - ./seed-laravel/public:/app/public:ro
+      - ./seed-spa:/srv/spa:ro
       - ./logs/nginx:/var/log/nginx
     depends_on:
       - php

@@ -43,7 +43,7 @@
 
     <h2>Examples</h2>
     <ul>
-        <li><a href="/spa/">/spa/</a> — vanilla JS SPA</li>
+        <li><a href="/spa/">/spa/</a> — stack status dashboard</li>
         <li><a href="/mail/send?to=test@example.com">/mail/send</a> — test email with attachment</li>
     </ul>
 

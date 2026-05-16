@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>the-seed · Status</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0f1117;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3rem 1rem 4rem;
+        }
+
+        .wrap { max-width: 760px; width: 100%; }
+
+        /* ── header ── */
+        header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            margin-bottom: .25rem;
+            flex-wrap: wrap;
+            gap: .5rem;
+        }
+        h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -.02em; }
+        .overall {
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+            font-size: .82rem;
+            font-weight: 600;
+        }
+        .overall-dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: #334155;
+            transition: background .4s;
+        }
+        .overall-dot.all-ok    { background: #22c55e; box-shadow: 0 0 8px #22c55e88; }
+        .overall-dot.has-error { background: #ef4444; box-shadow: 0 0 8px #ef444488; }
+        .overall-dot.checking  { background: #94a3b8; animation: blink 1s infinite; }
+
+        .subtitle {
+            color: #64748b;
+            font-size: .82rem;
+            margin-bottom: .6rem;
+        }
+
+        /* ── toolbar ── */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .btn-refresh {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            font-size: .78rem;
+            font-weight: 600;
+            padding: .3rem .85rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background .15s, color .15s;
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+        }
+        .btn-refresh:hover { background: #273549; color: #e2e8f0; }
+        .btn-refresh.spinning .icon-refresh { animation: spin .6s linear infinite; }
+
+        .countdown {
+            font-size: .78rem;
+            color: #475569;
+        }
+        .countdown em { color: #64748b; font-style: normal; font-weight: 600; }
+
+        /* ── cards ── */
+        .cards { display: grid; gap: .85rem; }
+
+        .card {
+            background: #1a1f2e;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 1.1rem 1.4rem;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 1rem;
+            transition: border-color .3s;
+        }
+        .card.state-ok    { border-color: #166534; }
+        .card.state-error { border-color: #7f1d1d; }
+        .card.state-checking { border-color: #1e293b; }
+
+        /* status ring */
+        .ring-wrap { position: relative; width: 36px; height: 36px; flex-shrink: 0; }
+        .ring {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            border: 2px solid #1e293b;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+            transition: border-color .3s, background .3s;
+        }
+        .ring.ok      { border-color: #22c55e; background: #052e16; color: #4ade80; }
+        .ring.error   { border-color: #ef4444; background: #450a0a; color: #f87171; }
+        .ring.checking {
+            border-color: #334155; background: transparent; color: transparent;
+            border-top-color: #64748b;
+            animation: spin .8s linear infinite;
+        }
+        .ring-pulse {
+            position: absolute; inset: -4px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            transition: border-color .4s;
+        }
+        .card.state-ok .ring-pulse {
+            border-color: #22c55e44;
+            animation: ripple 2s ease-out infinite;
+        }
+
+        /* card body */
+        .card-name  { font-weight: 700; font-size: .95rem; margin-bottom: .1rem; }
+        .card-meta  { font-size: .75rem; color: #475569; }
+        .card-meta a { color: #6366f1; text-decoration: none; }
+        .card-meta a:hover { text-decoration: underline; }
+
+        /* right side stats */
+        .card-stats { text-align: right; flex-shrink: 0; }
+        .stat-badge {
+            display: inline-block;
+            font-size: .72rem; font-weight: 700;
+            padding: .18rem .6rem;
+            border-radius: 99px;
+            margin-bottom: .25rem;
+            letter-spacing: .01em;
+        }
+        .stat-badge.ok    { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+        .stat-badge.error { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+        .stat-badge.idle  { background: #0f172a; color: #475569; border: 1px solid #1e293b; }
+        .stat-ms  { font-size: .7rem; color: #475569; white-space: nowrap; }
+        .stat-ago { font-size: .68rem; color: #334155; white-space: nowrap; }
+
+        /* ── expandable JSON ── */
+        .card-detail {
+            grid-column: 1 / -1;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height .3s ease;
+        }
+        .card-detail.open { max-height: 300px; }
+        pre {
+            background: #0d1117;
+            color: #7dd3fc;
+            padding: .8rem 1rem;
+            border-radius: 8px;
+            font-size: .73rem;
+            overflow-x: auto;
+            line-height: 1.6;
+            border: 1px solid #1e293b;
+            margin-top: .6rem;
+        }
+
+        /* ── nav ── */
+        nav {
+            margin-top: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem .1rem;
+            font-size: .78rem;
+        }
+        nav a {
+            color: #475569;
+            text-decoration: none;
+            padding: .2rem .65rem;
+            border-radius: 5px;
+            transition: background .15s, color .15s;
+        }
+        nav a:hover { background: #1e293b; color: #e2e8f0; }
+        nav .sep { color: #1e293b; padding: .2rem 0; }
+
+        /* ── animations ── */
+        @keyframes spin   { to { transform: rotate(360deg); } }
+        @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:.3} }
+        @keyframes ripple {
+            0%   { transform: scale(1);   opacity: .6; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>the-seed</h1>
+        <div class="overall">
+            <div class="overall-dot checking" id="overall-dot"></div>
+            <span id="overall-text">checking…</span>
+        </div>
+    </header>
+    <p class="subtitle">Heartbeat dashboard — polls all three stacks every 15 s.</p>
+
+    <div class="toolbar">
+        <button class="btn-refresh" id="btn-refresh" onclick="triggerRefresh()">
+            <svg class="icon-refresh" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15A9 9 0 1 1 5.64 5.64L23 10"/>
+            </svg>
+            Refresh now
+        </button>
+        <span class="countdown" id="countdown"></span>
+    </div>
+
+    <div class="cards" id="cards"></div>
+
+    <nav>
+        <a href="/">Laravel</a>
+        <span class="sep">·</span>
+        <a href="/py/">Django</a>
+        <span class="sep">·</span>
+        <a href="/nest/">NestJS</a>
+        <span class="sep">·</span>
+        <a href="/nest/api/v1/docs" target="_blank">NestJS Swagger</a>
+        <span class="sep">·</span>
+        <a href="/py/api/v1/docs" target="_blank">FastAPI Swagger</a>
+    </nav>
+</div>
+
+<script>
+    const POLL_INTERVAL = 15; // seconds
+
+    const stacks = [
+        { id: 'laravel', name: 'seed-laravel', tech: 'PHP · Laravel 11',         url: '/api/v1/status',      home: '/' },
+        { id: 'django',  name: 'seed-django',  tech: 'Python · Django + FastAPI', url: '/py/api/v1/status',  home: '/py/' },
+        { id: 'nest',    name: 'seed-nest',    tech: 'Node · NestJS + TypeORM',   url: '/nest/api/v1/status', home: '/nest/' },
+    ];
+
+    const state = {};  // id → { status: 'ok'|'error'|'checking', ms, lastOk, data, error }
+
+    /* ── build DOM ── */
+    const container = document.getElementById('cards');
+    stacks.forEach(s => {
+        state[s.id] = { status: 'checking', ms: null, lastOk: null, data: null, error: null };
+        const el = document.createElement('div');
+        el.className = 'card state-checking';
+        el.id = 'card-' + s.id;
+        el.innerHTML = `
+            <div class="ring-wrap">
+                <div class="ring checking" id="ring-${s.id}"></div>
+                <div class="ring-pulse"   id="pulse-${s.id}"></div>
+            </div>
+            <div class="card-body">
+                <div class="card-name"><a href="${s.home}" style="color:inherit;text-decoration:none">${s.name}</a></div>
+                <div class="card-meta">
+                    <a href="${s.url}" target="_blank">${s.url}</a>
+                    &ensp;·&ensp;${s.tech}
+                </div>
+            </div>
+            <div class="card-stats">
+                <div class="stat-badge idle" id="badge-${s.id}">—</div>
+                <div class="stat-ms"  id="ms-${s.id}"></div>
+                <div class="stat-ago" id="ago-${s.id}"></div>
+            </div>
+            <div class="card-detail" id="detail-${s.id}">
+                <pre id="pre-${s.id}">…</pre>
+            </div>`;
+        /* click to expand JSON */
+        el.addEventListener('click', () => {
+            const d = document.getElementById('detail-' + s.id);
+            d.classList.toggle('open');
+        });
+        container.appendChild(el);
+    });
+
+    /* ── check one stack ── */
+    async function checkStack(s) {
+        const st = state[s.id];
+        st.status = 'checking';
+        renderCard(s);
+
+        const t0 = performance.now();
+        try {
+            const res = await fetch(s.url + '?_=' + Date.now(), { cache: 'no-store' });
+            const ms  = Math.round(performance.now() - t0);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            st.status = 'ok';
+            st.ms     = ms;
+            st.lastOk = Date.now();
+            st.data   = data;
+            st.error  = null;
+        } catch (err) {
+            const ms = Math.round(performance.now() - t0);
+            st.status = 'error';
+            st.ms     = ms;
+            st.error  = err.message;
+            st.data   = null;
+        }
+        renderCard(s);
+        renderOverall();
+    }
+
+    /* ── render one card ── */
+    function renderCard(s) {
+        const st     = state[s.id];
+        const card   = document.getElementById('card-'  + s.id);
+        const ring   = document.getElementById('ring-'  + s.id);
+        const badge  = document.getElementById('badge-' + s.id);
+        const msEl   = document.getElementById('ms-'    + s.id);
+        const agoEl  = document.getElementById('ago-'   + s.id);
+        const preEl  = document.getElementById('pre-'   + s.id);
+
+        card.className  = 'card state-' + st.status;
+        ring.className  = 'ring ' + st.status;
+
+        if (st.status === 'ok') {
+            ring.textContent  = '✓';
+            badge.className   = 'stat-badge ok';
+            badge.textContent = 'online';
+            msEl.textContent  = st.ms + ' ms';
+            if (st.data) preEl.textContent = JSON.stringify(st.data, null, 2);
+        } else if (st.status === 'error') {
+            ring.textContent  = '✕';
+            badge.className   = 'stat-badge error';
+            badge.textContent = 'offline';
+            msEl.textContent  = st.ms != null ? st.ms + ' ms' : '';
+            preEl.textContent = st.error || 'unknown error';
+        } else {
+            ring.textContent  = '';
+            badge.className   = 'stat-badge idle';
+            badge.textContent = '—';
+            msEl.textContent  = '';
+        }
+
+        agoEl.textContent = st.lastOk ? 'last ok ' + timeAgo(st.lastOk) : '';
+    }
+
+    /* ── overall indicator ── */
+    function renderOverall() {
+        const dot  = document.getElementById('overall-dot');
+        const text = document.getElementById('overall-text');
+        const statuses = stacks.map(s => state[s.id].status);
+        if (statuses.some(s => s === 'checking')) {
+            dot.className = 'overall-dot checking';
+            text.textContent = 'checking…';
+        } else if (statuses.every(s => s === 'ok')) {
+            dot.className = 'overall-dot all-ok';
+            text.textContent = 'all systems up';
+        } else {
+            const n = statuses.filter(s => s === 'error').length;
+            dot.className = 'overall-dot has-error';
+            text.textContent = n + ' service' + (n > 1 ? 's' : '') + ' down';
+        }
+    }
+
+    /* ── helpers ── */
+    function timeAgo(ts) {
+        const s = Math.floor((Date.now() - ts) / 1000);
+        if (s < 5)  return 'just now';
+        if (s < 60) return s + 's ago';
+        return Math.floor(s / 60) + 'm ago';
+    }
+
+    /* ── polling ── */
+    function runAll() {
+        stacks.forEach(checkStack);
+    }
+
+    let tickLeft = 0;
+    let timer;
+
+    function startCountdown() {
+        clearInterval(timer);
+        tickLeft = POLL_INTERVAL;
+        const el = document.getElementById('countdown');
+        timer = setInterval(() => {
+            tickLeft--;
+            if (tickLeft <= 0) {
+                el.innerHTML = '';
+                clearInterval(timer);
+                runAll();
+                setTimeout(startCountdown, 200);
+            } else {
+                el.innerHTML = 'next check in <em>' + tickLeft + 's</em>';
+            }
+        }, 1000);
+        el.innerHTML = 'next check in <em>' + tickLeft + 's</em>';
+    }
+
+    function triggerRefresh() {
+        clearInterval(timer);
+        document.getElementById('countdown').innerHTML = '';
+        const btn = document.getElementById('btn-refresh');
+        btn.classList.add('spinning');
+        runAll();
+        Promise.allSettled(stacks.map(s => checkStack(s))).then(() => {
+            btn.classList.remove('spinning');
+            startCountdown();
+        });
+    }
+
+    /* ── "last ok X ago" ticker ── */
+    setInterval(() => {
+        stacks.forEach(s => {
+            const agoEl = document.getElementById('ago-' + s.id);
+            if (state[s.id].lastOk) {
+                agoEl.textContent = 'last ok ' + timeAgo(state[s.id].lastOk);
+            }
+        });
+    }, 5000);
+
+    /* ── boot ── */
+    runAll();
+    startCountdown();
+</script>
+</body>
+</html>
